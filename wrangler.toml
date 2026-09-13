@@ -9,9 +9,3 @@ ENVIRONMENT = "production"
 # Secrets (set with `wrangler secret put`)
 # VALID_API_KEYS = "your,api,keys,here"
 # VALID_TOKENS = "your,jwt,tokens,here"
-
-[limits]
-cpu_ms = 10000
-
-[placement]
-mode = "smart"
