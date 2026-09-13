@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Video Generator - Professional Edition</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css"
+        integrity="sha512-jnSuA4Ss2PkkikSOLtYs8BlYIeeIK1h99ty4YfvRPAlzr377vr3CXDb7sb7eEEBYjDtcYj+AjBH3FLv5uSJuXg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-video"></i> AI Video Generator
+            </a>
+            <div class="d-flex">
+                <a href="#api" class="nav-link">API Docs</a>
+                <a href="#pricing" class="nav-link">Pricing</a>
+            </div>
+        </div>
+    </nav>
+
+    <div style="margin-top: 68px;">
+        <!-- Hero -->
+        <section class="container hero-section">
+            <div class="row justify-content-center">
+                <div class="col-lg-10 text-center">
+                    <div class="title-badge mb-3"><i class="fas fa-film"></i> Professional AI Video Generation</div>
+                    <h1>Generate Stunning Videos with AI</h1>
+                    <p>Create high-quality videos from text or images using advanced AI models. Supports Text-to-Video,
+                        Image-to-Video, and Image Generation.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Generator -->
+        <section class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="generator-card">
+                        <!-- API Key Section -->
+                        <div class="api-key-section">
+                            <label class="form-label">API Key</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control api-key-input" id="apiKeyInput"
+                                    placeholder="Enter your API key">
+                                <button class="btn btn-outline-secondary" onclick="saveApiKey()">Save</button>
+                            </div>
+                            <small class="text-muted">Your API key is stored locally and never sent to our
+                                servers.</small>
+                        </div>
+
+                        <!-- Mode Toggle -->
+                        <div class="mb-3">
+                            <ul class="nav nav-tabs" id="modeTabs">
+                                <li class="nav-item">
+                                    <a class="nav-link active" data-mode="t2v">Text to Video</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" data-mode="i2v">Image to Video</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" data-mode="img">Image Generation</a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Model Select -->
+                        <div class="mb-3">
+                            <label for="modelSelect" class="form-label">Select Model <span id="modelBadge"
+                                    class="model-badge badge-new">NEW</span></label>
+                            <select class="form-select" id="modelSelect"></select>
+                        </div>
+
+                        <!-- Prompt -->
+                        <div class="mb-3">
+                            <label for="promptInput" class="form-label">Prompt</label>
+                            <textarea class="form-control" id="promptInput"
+                                placeholder="Describe the video/image you want to generate..."></textarea>
+                        </div>
+
+                        <!-- Image Upload (for I2V) -->
+                        <div class="mb-3 d-none" id="imageUploadSection">
+                            <label class="form-label">Upload Image</label>
+                            <div class="border-2 border-dashed rounded-3 p-4 text-center" id="imageUploadArea"
+                                style="border-color: var(--border-color);">
+                                <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                                <p class="mb-1">Click to upload or drag & drop</p>
+                                <small class="text-muted">Supports JPG, PNG, WEBP · Max 10MB</small>
+                                <input type="file" id="imageFileInput" accept="image/*" class="d-none">
+                            </div>
+                            <div id="imagePreview" class="mt-2 d-none">
+                                <img id="previewImg" src="" alt="Image preview"
+                                    style="max-width: 100%; max-height: 200px; border-radius: 8px;">
+                                <br>
+                                <button class="btn btn-sm btn-outline-danger" onclick="removeUploadedImage()">
+                                    <i class="fas fa-trash"></i> Remove
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Parameters -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Duration (sec) <span id="durationBadge"
+                                        class="model-badge badge-fast"></span></label>
+                                <input type="range" class="form-range" id="durationSlider" min="2" max="10" value="5">
+                                <span id="durationValue">5</span>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Steps <span id="stepsBadge"
+                                        class="model-badge badge-quality"></span></label>
+                                <input type="range" class="form-range" id="stepsSlider" min="4" max="50" value="20">
+                                <span id="stepsValue">20</span>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Guidance Scale</label>
+                                <input type="range" class="form-range" id="guidanceSlider" min="1" max="15" step="0.5"
+                                    value="7.5">
+                                <span id="guidanceValue">7.5</span>
+                            </div>
+                        </div>
+
+                        <!-- Aspect Ratio -->
+                        <div class="mb-3">
+                            <label class="form-label">Aspect Ratio</label>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="setAspectRatio('16:9')">16:9</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="setAspectRatio('9:16')">9:16</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="setAspectRatio('1:1')">1:1</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="setAspectRatio('4:3')">4:3</button>
+                            </div>
+                        </div>
+
+                        <!-- Generate Button -->
+                        <button class="btn btn-generate" id="generateBtn" onclick="generateVideo()">
+                            <i class="fas fa-play me-2"></i>Generate
+                        </button>
+                    </div>
+
+                    <!-- Output Area -->
+                    <div class="output-area" id="outputArea">
+                        <div class="output-placeholder">
+                            <i class="fas fa-film"></i>
+                            <p>Enter a prompt and click "Generate" to start</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="container features-section">
+            <div class="row justify-content-center">
+                <div class="col-lg-8 text-center">
+                    <h2>Why Choose Our Platform?</h2>
+                    <p class="text-muted mb-4">Professional AI video generation with enterprise-grade security and
+                        performance</p>
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <div class="feature-card">
+                                <div class="feature-icon"><i class="fas fa-bolt"></i></div>
+                                <h5>Fast Generation</h5>
+                                <p class="text-muted">Powered by cutting-edge models on Cloudflare's edge network</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="feature-card">
+                                <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
+                                <h5>API Key Security</h5>
+                                <p class="text-muted">Secure authentication for all API requests</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="feature-card">
+                                <div class="feature-icon"><i class="fas fa-cogs"></i></div>
+                                <h5>Multi-Model Support</h5>
+                                <p class="text-muted">Access to multiple video and image generation models</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-6">
+                        <a class="navbar-brand" href="/">
+                            <i class="fas fa-video"></i> AI Video Generator
+                        </a>
+                        <p class="text-muted mt-2">Professional AI Video Generation Platform</p>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <p class="text-muted">© 2024 AI Video Generator. All rights reserved.</p>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

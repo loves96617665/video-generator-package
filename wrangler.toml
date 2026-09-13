@@ -6,6 +6,11 @@ compatibility_date = "2024-12-31"
 [vars]
 ENVIRONMENT = "production"
 
+# Assets (static files)
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
 # Secrets (set with `wrangler secret put`)
 # VALID_API_KEYS = "your,api,keys,here"
 # VALID_TOKENS = "your,jwt,tokens,here"

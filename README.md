@@ -11,6 +11,26 @@ A professional AI video generation platform supporting Text-to-Video, Image-to-V
 - ⚡ **Multi-Model Support** - Multiple video and image generation models
 - 📊 **Progress Tracking** - Real-time generation progress
 - 🚀 **Cloudflare Workers Native** - No external dependencies, runs on edge
+- 🌐 **Web Interface** - Professional web UI for interactive generation
+
+## Project Structure
+
+```
+video-generator-package/
+├── public/                    # Static assets for web interface
+│   ├── index.html            # Main web page
+│   ├── styles.css            # CSS styles
+│   ├── app.js                # Frontend JavaScript logic
+│   ├── favicon.svg           # SVG favicon
+│   └── favicon-32x32.png     # PNG favicon
+├── src/
+│   ├── index.js              # Cloudflare Workers entry point
+│   ├── models.js             # Model configuration manager
+│   └── generator.js          # Video/image generation handler
+├── wrangler.toml             # Cloudflare Workers configuration
+├── package.json              # NPM configuration
+└── README.md                 # This file
+```
 
 ## Supported Models
 
@@ -74,7 +94,7 @@ Content-Type: application/json
 {
   "modelId": "ltx-2-5",
   "prompt": "Add flowing water to this image",
-  "imageUrl": "https://example.com/image.png",
+  "imageUrl": "data:image/png;base64,...",
   "duration": 5,
   "aspectRatio": "16:9"
 }
@@ -116,18 +136,81 @@ wrangler secret put VALID_TOKENS
 # Enter: token1,token2
 ```
 
-## Deployment
+## Local Development
 
-### Local Development
+### Prerequisites
+- Node.js >= 18.0.0
+- npm or yarn
+- Cloudflare account
+
+### Installation
 ```bash
+# Install dependencies
 npm install
+
+# Start development server
 npm run dev
 ```
 
+This will start the local development server at `http://localhost:8787`
+
+### Local Testing with API
+
+You can test the API without authentication in development mode:
+
+```bash
+# Health check
+curl http://localhost:8787/health
+
+# Get models
+curl http://localhost:8787/api/models
+
+# Test video generation
+curl -X POST http://localhost:8787/api/generate/video/text \
+  -H "Content-Type: application/json" \
+  -d '{"modelId": "ltx-2-5", "prompt": "A beautiful sunset over mountains"}'
+```
+
+## Deployment
+
 ### Deploy to Cloudflare Workers
 ```bash
+# Login to Cloudflare
+wrangler login
+
+# Deploy
 npm run deploy
 ```
+
+### Set Secrets (API Keys)
+```bash
+# Set API keys
+wrangler secret put VALID_API_KEYS
+
+# Set JWT tokens (optional)
+wrangler secret put VALID_TOKENS
+```
+
+### Custom Domain (Optional)
+Add your custom domain to `wrangler.toml`:
+```toml
+routes = [
+  { pattern = "yourdomain.com/*", zone_id = "your-zone-id" }
+]
+```
+
+## Frontend Interface
+
+The web interface is available at `/` after deployment.
+
+### Features
+- Model selection dropdown
+- Generation mode toggle (Text-to-Video, Image-to-Video, Image Generation)
+- Parameter controls (duration, steps, guidance scale)
+- Aspect ratio selection
+- API key storage (local only, not sent to server)
+- Progress tracking
+- Video/image preview and download
 
 ## API Rate Limits
 

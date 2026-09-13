@@ -66,6 +66,28 @@ function handleOptions() {
     });
 }
 
+// Serve static file from ASSETS binding
+async function serveStaticFile(request, env) {
+    const url = new URL(request.url);
+    let pathname = url.pathname;
+
+    // Default to index.html for root path
+    if (pathname === '/' || pathname === '') {
+        pathname = '/index.html';
+    }
+
+    // Try to fetch from ASSETS
+    if (env.ASSETS && env.ASSETS.fetch) {
+        const assetRequest = new Request(request.url.replace(url.pathname, pathname), request);
+        const response = await env.ASSETS.fetch(assetRequest);
+        if (response.status !== 404) {
+            return response;
+        }
+    }
+
+    return null;
+}
+
 // Main request handler
 async function handleRequest(request, env, ctx) {
     const url = new URL(request.url);
@@ -271,7 +293,23 @@ async function handleRequest(request, env, ctx) {
         return jsonResponse(result);
     }
 
-    // 404
+    // Serve static files (for non-API routes)
+    if (!path.startsWith('/api/')) {
+        const staticResponse = await serveStaticFile(request, env);
+        if (staticResponse) {
+            return staticResponse;
+        }
+    }
+
+    // 404 - Try to serve index.html for SPA routing
+    if (!path.startsWith('/api/')) {
+        const indexResponse = await serveStaticFile(request, env);
+        if (indexResponse && indexResponse.status === 200) {
+            return indexResponse.clone();
+        }
+    }
+
+    // 404 Not Found
     return jsonResponse({
         success: false,
         error: 'Endpoint not found',
