@@ -3,10 +3,9 @@
  * Handles video and image generation requests with Gradio API integration
  */
 
-const axios = require('axios');
-const { modelManager } = require('./models');
+import { modelManager } from './models';
 
-class VideoGenerator {
+export class VideoGenerator {
     constructor() {
         this.queue = new Map();
         this.processingJobs = new Map();
@@ -337,11 +336,12 @@ class VideoGenerator {
         let imageData = null;
         if (imageUrl) {
             try {
-                const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-                const base64 = Buffer.from(response.data).toString('base64');
+                const response = await fetch(imageUrl);
+                const arrayBuffer = await response.arrayBuffer();
+                const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
                 imageData = {
                     type: 'image/png',
-                    size: response.data.length,
+                    size: arrayBuffer.byteLength,
                     url: imageUrl,
                     base64
                 };
@@ -400,16 +400,18 @@ class VideoGenerator {
             const sessionHash = Math.random().toString(36).substring(2);
 
             // Join queue
-            const joinRes = await axios.post(`${job.spaceUrl}/gradio_api/queue/join`, {
-                data: job.payload,
-                fn_index: job.fnIndex,
-                session_hash: sessionHash
-            }, {
+            const joinRes = await fetch(`${job.spaceUrl}/gradio_api/queue/join`, {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                timeout: 30000
+                body: JSON.stringify({
+                    data: job.payload,
+                    fn_index: job.fnIndex,
+                    session_hash: sessionHash
+                })
             });
 
-            const eventId = joinRes.data?.event_id;
+            const joinData = await joinRes.json();
+            const eventId = joinData.event_id;
             job.eventId = eventId;
             job.status = 'queued';
 
@@ -417,14 +419,15 @@ class VideoGenerator {
             let progress = 0;
             const progressInterval = setInterval(async () => {
                 try {
-                    const statusRes = await axios.get(`${job.spaceUrl}/gradio_api/queue/data?session_hash=${sessionHash}`);
-                    const msg = statusRes.data?.msg;
+                    const statusRes = await fetch(`${job.spaceUrl}/gradio_api/queue/data?session_hash=${sessionHash}`);
+                    const statusData = await statusRes.json();
+                    const msg = statusData.msg;
 
                     if (msg === 'process_completed') {
                         clearInterval(progressInterval);
                         job.status = 'completed';
                         job.completedAt = new Date();
-                        job.result = statusRes.data?.output;
+                        job.result = statusData.output;
                     } else if (msg === 'process_generating') {
                         progress = progress === 0 ? 20 : progress + Math.floor(Math.random() * 15) + 5;
                         if (progress > 95) progress = 95;
@@ -511,9 +514,4 @@ class VideoGenerator {
 }
 
 // Export singleton instance
-const videoGenerator = new VideoGenerator();
-
-module.exports = {
-    VideoGenerator,
-    videoGenerator
-};
+export const videoGenerator = new VideoGenerator();

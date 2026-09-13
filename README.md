@@ -1,6 +1,6 @@
-# AI Video Generator Platform
+# AI Video Generator Platform (Cloudflare Workers)
 
-A professional AI video generation platform supporting Text-to-Video, Image-to-Video, and Image generation with multi-model support and API key authentication.
+A professional AI video generation platform supporting Text-to-Video, Image-to-Video, and Image generation with multi-model support and API key authentication. Built natively for Cloudflare Workers.
 
 ## Features
 
@@ -10,7 +10,7 @@ A professional AI video generation platform supporting Text-to-Video, Image-to-V
 - 🔑 **API Key Authentication** - Secure API access with API keys
 - ⚡ **Multi-Model Support** - Multiple video and image generation models
 - 📊 **Progress Tracking** - Real-time generation progress
-- 🚀 **Cloudflare Workers Ready** - Deploy-ready for Cloudflare
+- 🚀 **Cloudflare Workers Native** - No external dependencies, runs on edge
 
 ## Supported Models
 
@@ -22,6 +22,7 @@ A professional AI video generation platform supporting Text-to-Video, Image-to-V
 | minimax-h3 | MiniMax H3 | T2V/I2V | 960x544 | 28 |
 | wan2-2-fast | Wan 2.2 Fast | T2V/I2V | 832x480 | 4-20 |
 | omni-video-factory | Omni Video Factory | T2V/I2V | 512x288 | 3 |
+| ltx-2-3-f2lf | LTX-2.3 First-Last Frame | T2V/I2V | 1536x1024 | 10 |
 
 ### Image Models
 | Model ID | Name | Provider |
@@ -30,6 +31,7 @@ A professional AI video generation platform supporting Text-to-Video, Image-to-V
 | flux-2 | Flux 2 AI | Black Forest Labs |
 | seedream-4 | Seedream 4.0 | Samsung SDS |
 | qwen-image | Qwen Image | Alibaba |
+| nano-banana | Nano Banana AI | Unknown |
 
 ## API Endpoints
 
@@ -40,7 +42,7 @@ X-API-Key: your-api-key
 
 Or use Bearer token:
 ```
-Authorization: Bearer your-jwt-token
+Authorization: Bearer your-token
 ```
 
 ### Get Models
@@ -70,7 +72,7 @@ POST /api/generate/video/image
 Content-Type: application/json
 
 {
-  "modelId": "ltx-2-5-i2v",
+  "modelId": "ltx-2-5",
   "prompt": "Add flowing water to this image",
   "imageUrl": "https://example.com/image.png",
   "duration": 5,
@@ -102,14 +104,16 @@ GET /api/status/:jobId
 GET /api/result/:jobId
 ```
 
-## Environment Variables
+## Environment Variables (Cloudflare Secrets)
 
-```env
-PORT=3000
-ALLOWED_ORIGINS=https://yourdomain.com
-VALID_API_KEYS=key1,key2,key3
-JWT_SECRET=your-jwt-secret
-ENVIRONMENT=production
+```bash
+# Set API keys
+wrangler secret put VALID_API_KEYS
+# Enter: key1,key2,key3
+
+# Set JWT tokens
+wrangler secret put VALID_TOKENS
+# Enter: token1,token2
 ```
 
 ## Deployment
@@ -120,23 +124,24 @@ npm install
 npm run dev
 ```
 
-### Cloudflare Workers
+### Deploy to Cloudflare Workers
 ```bash
-npm install -g wrangler
-wrangler login
-wrangler deploy
-```
-
-### Docker
-```bash
-docker build -t ai-video-generator .
-docker run -p 3000:3000 -e VALID_API_KEYS=your-key ai-video-generator
+npm run deploy
 ```
 
 ## API Rate Limits
 
 - **Default**: 60 requests per minute
 - **Authenticated**: Unlimited (depends on API key tier)
+
+## Architecture
+
+```
+src/
+├── index.js       # Cloudflare Workers entry point
+├── models.js      # Model configuration manager
+└── generator.js   # Video/image generation handler
+```
 
 ## License
 

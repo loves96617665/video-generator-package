@@ -1,90 +1,288 @@
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const { authorizeApiKey, rateLimiter, logger } = require('./middleware/auth');
-const apiRoutes = require('./routes');
+/**
+ * Cloudflare Workers Entry Point
+ * Native Workers implementation (no Express dependency)
+ */
 
-dotenv.config();
+import { modelManager } from './models';
+import { videoGenerator } from './generator';
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+// CORS headers
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-API-Key, Authorization',
+    'Access-Control-Max-Age': '86400',
+};
 
-// Middleware
-app.use(cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
-    credentials: true
-}));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use(logger);
+// API Key validation
+function validateApiKey(request, env) {
+    const apiKey = request.headers.get('X-API-Key');
+    const authHeader = request.headers.get('Authorization');
 
-// Health Check Endpoint
-app.get('/health', (req, res) => {
-    res.json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        version: '1.0.0'
-    });
-});
+    // Check API Key header
+    if (apiKey) {
+        const validKeys = env.VALID_API_KEYS?.split(',') || [];
+        if (validKeys.length === 0 || validKeys.includes(apiKey)) {
+            return true;
+        }
+        return false;
+    }
 
-// API Documentation Endpoint
-app.get('/api', (req, res) => {
-    res.json({
-        name: 'AI Video Generator API',
-        version: '1.0.0',
-        description: 'Professional AI Video & Image Generation Platform',
-        endpoints: {
-            models: '/api/models',
-            generate: {
-                video: '/api/generate/video',
-                image: '/api/generate/image'
-            },
-            status: '/api/status/:jobId',
-            result: '/api/result/:jobId'
+    // Check Bearer token
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        // Simple token validation (in production, use JWT)
+        const validTokens = env.VALID_TOKENS?.split(',') || [];
+        if (validTokens.includes(token)) {
+            return true;
+        }
+        return false;
+    }
+
+    // Allow if no keys configured
+    if (!env.VALID_API_KEYS || env.VALID_API_KEYS === '') {
+        return true;
+    }
+
+    return false;
+}
+
+// JSON response helper
+function jsonResponse(data, status = 200) {
+    return new Response(JSON.stringify(data), {
+        status,
+        headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
         },
-        authentication: 'API Key required via X-API-Key header',
-        rate_limit: '60 requests per minute'
     });
-});
+}
 
-// Apply rate limiting to all API routes
-app.use('/api', rateLimiter(60, 60000));
-
-// API Routes
-app.use('/api', authorizeApiKey, apiRoutes);
-
-// 404 Handler
-app.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        error: 'Endpoint not found',
-        path: req.path,
-        method: req.method
+// Handle OPTIONS (CORS preflight)
+function handleOptions() {
+    return new Response(null, {
+        status: 204,
+        headers: corsHeaders,
     });
-});
+}
 
-// Error Handler
-app.use((err, req, res, next) => {
-    console.error('Server error:', err);
+// Main request handler
+async function handleRequest(request, env, ctx) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+    const method = request.method;
 
-    if (err.type === 'entity.too.large') {
-        return res.status(413).json({
-            success: false,
-            error: 'Request entity too large (max 50MB)'
+    // CORS preflight
+    if (method === 'OPTIONS') {
+        return handleOptions();
+    }
+
+    // Health check
+    if (path === '/health') {
+        return jsonResponse({
+            status: 'healthy',
+            timestamp: new Date().toISOString(),
+            version: '1.0.0',
         });
     }
 
-    res.status(500).json({
+    // API documentation
+    if (path === '/api' || path === '/api/') {
+        return jsonResponse({
+            name: 'AI Video Generator API',
+            version: '1.0.0',
+            description: 'Professional AI Video & Image Generation Platform',
+            endpoints: {
+                models: '/api/models',
+                generate: {
+                    video: '/api/generate/video',
+                    image: '/api/generate/image',
+                },
+                status: '/api/status/:jobId',
+                result: '/api/result/:jobId',
+            },
+            authentication: 'API Key required via X-API-Key header',
+        });
+    }
+
+    // API Key validation for protected routes
+    if (path.startsWith('/api/')) {
+        if (!validateApiKey(request, env)) {
+            return jsonResponse({ success: false, error: 'Invalid API Key' }, 401);
+        }
+    }
+
+    // Get models
+    if (path === '/api/models' && method === 'GET') {
+        return jsonResponse({
+            success: true,
+            data: {
+                video: modelManager.getAllVideoModels(),
+                image: modelManager.getAllImageModels(),
+            },
+        });
+    }
+
+    // Get video models
+    if (path === '/api/models/video' && method === 'GET') {
+        return jsonResponse({
+            success: true,
+            data: modelManager.getAllVideoModels(),
+        });
+    }
+
+    // Get image models
+    if (path === '/api/models/image' && method === 'GET') {
+        return jsonResponse({
+            success: true,
+            data: modelManager.getAllImageModels(),
+        });
+    }
+
+    // Generate video from text
+    if (path === '/api/generate/video/text' && method === 'POST') {
+        try {
+            const body = await request.json();
+            const {
+                modelId,
+                prompt,
+                negativePrompt = '',
+                duration = 5,
+                steps,
+                guidance,
+                seed = -1,
+                aspectRatio = '16:9',
+            } = body;
+
+            if (!modelId || !prompt) {
+                return jsonResponse({ success: false, error: 'modelId and prompt are required' }, 400);
+            }
+
+            const result = await videoGenerator.generateTextToVideo({
+                modelId,
+                prompt,
+                negativePrompt,
+                duration,
+                steps,
+                guidance,
+                seed,
+                aspectRatio,
+            });
+
+            return jsonResponse(result);
+        } catch (error) {
+            return jsonResponse({ success: false, error: error.message }, 500);
+        }
+    }
+
+    // Generate video from image
+    if (path === '/api/generate/video/image' && method === 'POST') {
+        try {
+            const body = await request.json();
+            const {
+                modelId,
+                prompt,
+                imageUrl,
+                negativePrompt = '',
+                duration = 5,
+                steps,
+                guidance,
+                seed = -1,
+                aspectRatio = '16:9',
+            } = body;
+
+            if (!modelId || !prompt || !imageUrl) {
+                return jsonResponse({ success: false, error: 'modelId, prompt, and imageUrl are required' }, 400);
+            }
+
+            const result = await videoGenerator.generateImageToVideo({
+                modelId,
+                prompt,
+                imageUrl,
+                negativePrompt,
+                duration,
+                steps,
+                guidance,
+                seed,
+                aspectRatio,
+            });
+
+            return jsonResponse(result);
+        } catch (error) {
+            return jsonResponse({ success: false, error: error.message }, 500);
+        }
+    }
+
+    // Generate image
+    if (path === '/api/generate/image' && method === 'POST') {
+        try {
+            const body = await request.json();
+            const {
+                modelId,
+                prompt,
+                width = 1024,
+                height = 1024,
+                steps = 20,
+                guidance = 7.5,
+                seed = -1,
+            } = body;
+
+            if (!modelId || !prompt) {
+                return jsonResponse({ success: false, error: 'modelId and prompt are required' }, 400);
+            }
+
+            const model = modelManager.getImageModel(modelId);
+            if (!model) {
+                return jsonResponse({ success: false, error: `Model ${modelId} not found` }, 404);
+            }
+
+            const jobId = `image_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            return jsonResponse({
+                success: true,
+                jobId,
+                status: 'queued',
+                message: 'Image generation started',
+                model: modelId,
+                parameters: {
+                    width,
+                    height,
+                    steps,
+                    guidance,
+                    seed: seed === -1 ? Math.floor(Math.random() * 2147483647) : seed,
+                },
+            });
+        } catch (error) {
+            return jsonResponse({ success: false, error: error.message }, 500);
+        }
+    }
+
+    // Get job status
+    if (path.startsWith('/api/status/') && method === 'GET') {
+        const jobId = path.split('/').pop();
+        const status = videoGenerator.getJobStatus(jobId);
+        return jsonResponse(status);
+    }
+
+    // Get job result
+    if (path.startsWith('/api/result/') && method === 'GET') {
+        const jobId = path.split('/').pop();
+        const result = videoGenerator.getJobResult(jobId);
+        return jsonResponse(result);
+    }
+
+    // 404
+    return jsonResponse({
         success: false,
-        error: 'Internal server error'
-    });
-});
+        error: 'Endpoint not found',
+        path,
+        method,
+    }, 404);
+}
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`AI Video Generator API running on port ${PORT}`);
-    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`API Key protection: ${process.env.VALID_API_KEYS ? 'Enabled' : 'Disabled (no keys set)'}`);
-});
-
-module.exports = app;
+// Cloudflare Workers entry point
+export default {
+    async fetch(request, env, ctx) {
+        return handleRequest(request, env, ctx);
+    },
+};

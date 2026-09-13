@@ -3,7 +3,7 @@
  * Manages all available video and image generation models
  */
 
-class ModelManager {
+export class ModelManager {
     constructor() {
         this.videoModels = new Map();
         this.imageModels = new Map();
@@ -269,7 +269,6 @@ class ModelManager {
 
         const errors = [];
 
-        // Validate parameters
         for (const [key, value] of Object.entries(params)) {
             if (model.parameters[key]) {
                 const paramDef = model.parameters[key];
@@ -291,9 +290,4 @@ class ModelManager {
 }
 
 // Export singleton instance
-const modelManager = new ModelManager();
-
-module.exports = {
-    ModelManager,
-    modelManager
-};
+export const modelManager = new ModelManager();

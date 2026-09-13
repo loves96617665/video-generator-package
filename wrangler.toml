@@ -1,4 +1,4 @@
-name = "ai-video-generator-api"
+name = "video-generator-package"
 main = "src/index.js"
 compatibility_date = "2024-12-31"
 
@@ -8,15 +8,7 @@ ENVIRONMENT = "production"
 
 # Secrets (set with `wrangler secret put`)
 # VALID_API_KEYS = "your,api,keys,here"
-# JWT_SECRET = "your-jwt-secret"
-# DATABASE_URL = "your-database-url"
-
-[[routes]]
-pattern = "api.yourdomain.com/*"
-zone_id = ""
-
-[triggers]
-crons = []
+# VALID_TOKENS = "your,jwt,tokens,here"
 
 [limits]
 cpu_ms = 10000
