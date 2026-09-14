@@ -209,9 +209,7 @@ export class VideoGenerator {
 
         this.processingJobs.set(jobId, job);
 
-        // Start async generation
-        this.processJob(job);
-
+        // Return immediately - frontend will poll
         return {
             success: true,
             jobId,
@@ -368,8 +366,8 @@ export class VideoGenerator {
         };
 
         this.processingJobs.set(jobId, job);
-        this.processJob(job);
 
+        // Return immediately - frontend will poll
         return {
             success: true,
             jobId,
@@ -385,72 +383,6 @@ export class VideoGenerator {
                 resolution: `${resolution.width}x${resolution.height}`
             }
         };
-    }
-
-    /**
-     * Process job (async generation)
-     */
-    async processJob(job) {
-        job.status = 'processing';
-        job.startedAt = new Date();
-
-        try {
-            job.status = 'connecting';
-
-            const sessionHash = Math.random().toString(36).substring(2);
-
-            // Join queue
-            const joinRes = await fetch(`${job.spaceUrl}/gradio_api/queue/join`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    data: job.payload,
-                    fn_index: job.fnIndex,
-                    session_hash: sessionHash
-                })
-            });
-
-            const joinData = await joinRes.json();
-            const eventId = joinData.event_id;
-            job.eventId = eventId;
-            job.status = 'queued';
-
-            // Poll for progress (simplified)
-            let progress = 0;
-            const progressInterval = setInterval(async () => {
-                try {
-                    const statusRes = await fetch(`${job.spaceUrl}/gradio_api/queue/data?session_hash=${sessionHash}`);
-                    const statusData = await statusRes.json();
-                    const msg = statusData.msg;
-
-                    if (msg === 'process_completed') {
-                        clearInterval(progressInterval);
-                        job.status = 'completed';
-                        job.completedAt = new Date();
-                        job.result = statusData.output;
-                    } else if (msg === 'process_generating') {
-                        progress = progress === 0 ? 20 : progress + Math.floor(Math.random() * 15) + 5;
-                        if (progress > 95) progress = 95;
-                        job.progress = progress;
-                    }
-                } catch (e) {
-                    console.error('Progress polling error:', e.message);
-                }
-            }, 2000);
-
-            // Timeout handler
-            setTimeout(() => {
-                clearInterval(progressInterval);
-                if (job.status !== 'completed') {
-                    job.status = 'timeout';
-                }
-            }, 600000); // 10 minutes timeout
-
-        } catch (error) {
-            job.status = 'failed';
-            job.error = error.message;
-            job.failedAt = new Date();
-        }
     }
 
     /**
@@ -510,6 +442,31 @@ export class VideoGenerator {
             previewUrl: videoUrl,
             duration: job.payload?.duration || 5
         };
+    }
+
+    /**
+     * Poll HuggingFace for result
+     */
+    async pollHuggingFace(job, sessionHash) {
+        try {
+            const statusRes = await fetch(`${job.spaceUrl}/gradio_api/queue/data?session_hash=${sessionHash}`);
+            const statusData = await statusRes.json();
+            const msg = statusData.msg;
+
+            if (msg === 'process_completed') {
+                job.status = 'completed';
+                job.completedAt = new Date();
+                job.result = statusData.output;
+                return true;
+            } else if (msg === 'process_generating') {
+                job.progress = job.progress || 0;
+                job.progress = Math.min(job.progress + 20, 95);
+                return false;
+            }
+        } catch (e) {
+            console.error('Polling error:', e.message);
+        }
+        return false;
     }
 }
 

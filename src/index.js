@@ -19,7 +19,6 @@ function validateApiKey(request, env) {
     const apiKey = request.headers.get('X-API-Key');
     const authHeader = request.headers.get('Authorization');
 
-    // Check API Key header
     if (apiKey) {
         const validKeys = env.VALID_API_KEYS?.split(',') || [];
         if (validKeys.length === 0 || validKeys.includes(apiKey)) {
@@ -28,10 +27,8 @@ function validateApiKey(request, env) {
         return false;
     }
 
-    // Check Bearer token
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
-        // Simple token validation (in production, use JWT)
         const validTokens = env.VALID_TOKENS?.split(',') || [];
         if (validTokens.includes(token)) {
             return true;
@@ -39,7 +36,6 @@ function validateApiKey(request, env) {
         return false;
     }
 
-    // Allow if no keys configured
     if (!env.VALID_API_KEYS || env.VALID_API_KEYS === '') {
         return true;
     }
@@ -71,14 +67,14 @@ async function serveStaticFile(request, env) {
     const url = new URL(request.url);
     let pathname = url.pathname;
 
-    // Default to index.html for root path
     if (pathname === '/' || pathname === '') {
         pathname = '/index.html';
     }
 
-    // Try to fetch from ASSETS
     if (env.ASSETS && env.ASSETS.fetch) {
-        const assetRequest = new Request(request.url.replace(url.pathname, pathname), request);
+        const urlObj = new URL(request.url);
+        urlObj.pathname = pathname;
+        const assetRequest = new Request(urlObj, request);
         const response = await env.ASSETS.fetch(assetRequest);
         if (response.status !== 404) {
             return response;
@@ -86,6 +82,78 @@ async function serveStaticFile(request, env) {
     }
 
     return null;
+}
+
+// Process job status - calls HuggingFace API
+async function processJobIfNeeded(job) {
+    if (!job) return null;
+
+    // Only process if job hasn't started or is queued
+    if (job.status === 'queued' || job.status === 'connecting') {
+        job.status = 'connecting';
+
+        try {
+            const sessionHash = Math.random().toString(36).substring(2);
+
+            // Join HuggingFace queue
+            const joinRes = await fetch(job.spaceUrl + '/gradio_api/queue/join', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    data: job.payload,
+                    fn_index: job.fnIndex,
+                    session_hash: sessionHash
+                })
+            });
+
+            const joinData = await joinRes.json();
+            const eventId = joinData.event_id;
+            job.eventId = eventId;
+            job.sessionHash = sessionHash;
+            job.status = 'processing';
+            job.startedAt = new Date();
+
+            // Immediately try to fetch result
+            await checkHFStatus(job);
+
+        } catch (error) {
+            job.status = 'failed';
+            job.error = error.message;
+            job.failedAt = new Date();
+        }
+    } else if (job.status === 'processing' || job.status === 'generating') {
+        // Check HuggingFace status
+        await checkHFStatus(job);
+    }
+
+    return job;
+}
+
+// Check HuggingFace for job status
+async function checkHFStatus(job) {
+    try {
+        if (!job.sessionHash) return;
+
+        const statusRes = await fetch(job.spaceUrl + '/gradio_api/queue/data?session_hash=' + job.sessionHash);
+        const statusData = await statusRes.json();
+        const msg = statusData.msg;
+
+        if (msg === 'process_completed') {
+            job.status = 'completed';
+            job.completedAt = new Date();
+            job.result = statusData.output;
+            job.progress = 100;
+        } else if (msg === 'process_generating') {
+            job.progress = job.progress || 0;
+            job.progress = Math.min(job.progress + Math.floor(Math.random() * 15) + 5, 95);
+        } else if (msg === 'process_failed' || msg === 'failed') {
+            job.status = 'failed';
+            job.error = statusData.detail || 'Generation failed';
+            job.failedAt = new Date();
+        }
+    } catch (error) {
+        console.error('HF polling error:', error);
+    }
 }
 
 // Main request handler
@@ -255,10 +323,10 @@ async function handleRequest(request, env, ctx) {
 
             const model = modelManager.getImageModel(modelId);
             if (!model) {
-                return jsonResponse({ success: false, error: `Model ${modelId} not found` }, 404);
+                return jsonResponse({ success: false, error: 'Model ' + modelId + ' not found' }, 404);
             }
 
-            const jobId = `image_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const jobId = 'image_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
             return jsonResponse({
                 success: true,
@@ -282,6 +350,15 @@ async function handleRequest(request, env, ctx) {
     // Get job status
     if (path.startsWith('/api/status/') && method === 'GET') {
         const jobId = path.split('/').pop();
+
+        // Get job and process if needed
+        let job = videoGenerator.processingJobs.get(jobId);
+
+        if (job) {
+            // Process the job if it's in a pending state
+            job = await processJobIfNeeded(job);
+        }
+
         const status = videoGenerator.getJobStatus(jobId);
         return jsonResponse(status);
     }
@@ -289,11 +366,18 @@ async function handleRequest(request, env, ctx) {
     // Get job result
     if (path.startsWith('/api/result/') && method === 'GET') {
         const jobId = path.split('/').pop();
+
+        // Try to process the job if it's still in progress
+        let job = videoGenerator.processingJobs.get(jobId);
+        if (job && (job.status === 'queued' || job.status === 'connecting' || job.status === 'processing')) {
+            job = await processJobIfNeeded(job);
+        }
+
         const result = videoGenerator.getJobResult(jobId);
         return jsonResponse(result);
     }
 
-    // Serve static files (for non-API routes)
+    // Serve static files
     if (!path.startsWith('/api/')) {
         const staticResponse = await serveStaticFile(request, env);
         if (staticResponse) {
@@ -301,15 +385,7 @@ async function handleRequest(request, env, ctx) {
         }
     }
 
-    // 404 - Try to serve index.html for SPA routing
-    if (!path.startsWith('/api/')) {
-        const indexResponse = await serveStaticFile(request, env);
-        if (indexResponse && indexResponse.status === 200) {
-            return indexResponse.clone();
-        }
-    }
-
-    // 404 Not Found
+    // 404
     return jsonResponse({
         success: false,
         error: 'Endpoint not found',
