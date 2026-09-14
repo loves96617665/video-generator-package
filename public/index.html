@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="light">
+<html lang="zh-Hant" data-bs-theme="light">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Video Generator - Professional Edition</title>
+    <title>AI 影片生成器 - 專業版</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css"
         integrity="sha512-jnSuA4Ss2PkkikSOLtYs8BlYIeeIK1h99ty4YfvRPAlzr377vr3CXDb7sb7eEEBYjDtcYj+AjBH3FLv5uSJuXg=="
@@ -14,123 +14,110 @@
 </head>
 
 <body>
-    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light fixed-top">
         <div class="container">
             <a class="navbar-brand" href="/">
-                <i class="fas fa-video"></i> AI Video Generator
+                <i class="fas fa-video"></i> AI 影片生成器
             </a>
             <div class="d-flex">
-                <a href="#api" class="nav-link">API Docs</a>
-                <a href="#pricing" class="nav-link">Pricing</a>
+                <a href="#api" class="nav-link">API 文檔</a>
+                <a href="#pricing" class="nav-link">價格方案</a>
             </div>
         </div>
     </nav>
 
     <div style="margin-top: 68px;">
-        <!-- Hero -->
         <section class="container hero-section">
             <div class="row justify-content-center">
                 <div class="col-lg-10 text-center">
-                    <div class="title-badge mb-3"><i class="fas fa-film"></i> Professional AI Video Generation</div>
-                    <h1>Generate Stunning Videos with AI</h1>
-                    <p>Create high-quality videos from text or images using advanced AI models. Supports Text-to-Video,
-                        Image-to-Video, and Image Generation.</p>
+                    <div class="title-badge mb-3"><i class="fas fa-film"></i> 專業 AI 影片生成</div>
+                    <h1>輕鬆生成高品質影片</h1>
+                    <p>透過 AI 模型將文字或圖片轉換為精彩影片。支援文字轉影片、圖片轉影片與影像生成。</p>
                 </div>
             </div>
         </section>
 
-        <!-- Generator -->
         <section class="container">
             <div class="row justify-content-center">
                 <div class="col-lg-8">
                     <div class="generator-card">
-                        <!-- API Key Section -->
                         <div class="api-key-section">
-                            <label class="form-label">API Key</label>
+                            <label class="form-label"><i class="fas fa-key"></i> API 金鑰</label>
                             <div class="input-group">
                                 <input type="password" class="form-control api-key-input" id="apiKeyInput"
-                                    placeholder="Enter your API key">
-                                <button class="btn btn-outline-secondary" onclick="saveApiKey()">Save</button>
+                                    placeholder="輸入您的 API 金鑰">
+                                <button class="btn btn-outline-secondary" onclick="saveApiKey()">儲存</button>
                             </div>
-                            <small class="text-muted">Your API key is stored locally and never sent to our
-                                servers.</small>
+                            <small class="text-muted">您的 API 金鑰會本地儲存，不會送至我們的伺服器。</small>
                         </div>
 
-                        <!-- Mode Toggle -->
                         <div class="mb-3">
                             <ul class="nav nav-tabs" id="modeTabs">
                                 <li class="nav-item">
-                                    <a class="nav-link active" data-mode="t2v">Text to Video</a>
+                                    <a class="nav-link active" data-mode="t2v">文字轉影片</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" data-mode="i2v">Image to Video</a>
+                                    <a class="nav-link" data-mode="i2v">圖片轉影片</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" data-mode="img">Image Generation</a>
+                                    <a class="nav-link" data-mode="img">影像生成</a>
                                 </li>
                             </ul>
                         </div>
 
-                        <!-- Model Select -->
                         <div class="mb-3">
-                            <label for="modelSelect" class="form-label">Select Model <span id="modelBadge"
+                            <label for="modelSelect" class="form-label">選擇模型 <span id="modelBadge"
                                     class="model-badge badge-new">NEW</span></label>
                             <select class="form-select" id="modelSelect"></select>
                         </div>
 
-                        <!-- Prompt -->
                         <div class="mb-3">
-                            <label for="promptInput" class="form-label">Prompt</label>
-                            <textarea class="form-control" id="promptInput"
-                                placeholder="Describe the video/image you want to generate..."></textarea>
+                            <label for="promptInput" class="form-label">提示詞</label>
+                            <textarea class="form-control" id="promptInput" placeholder="描述您想要的影片/影像..."></textarea>
                         </div>
 
-                        <!-- Image Upload (for I2V) -->
                         <div class="mb-3 d-none" id="imageUploadSection">
-                            <label class="form-label">Upload Image</label>
+                            <label class="form-label">上傳圖片</label>
                             <div class="border-2 border-dashed rounded-3 p-4 text-center" id="imageUploadArea"
                                 style="border-color: var(--border-color);">
                                 <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
-                                <p class="mb-1">Click to upload or drag & drop</p>
-                                <small class="text-muted">Supports JPG, PNG, WEBP · Max 10MB</small>
+                                <p class="mb-1">點擊上傳或拖曳</p>
+                                <small class="text-muted">支援 JPG, PNG, WEBP · 最多 10MB</small>
                                 <input type="file" id="imageFileInput" accept="image/*" class="d-none">
                             </div>
                             <div id="imagePreview" class="mt-2 d-none">
-                                <img id="previewImg" src="" alt="Image preview"
+                                <img id="previewImg" src="" alt="預覽圖片"
                                     style="max-width: 100%; max-height: 200px; border-radius: 8px;">
                                 <br>
                                 <button class="btn btn-sm btn-outline-danger" onclick="removeUploadedImage()">
-                                    <i class="fas fa-trash"></i> Remove
+                                    <i class="fas fa-trash"></i> 移除
                                 </button>
                             </div>
                         </div>
 
-                        <!-- Parameters -->
                         <div class="row g-3 mb-3">
                             <div class="col-md-4">
-                                <label class="form-label">Duration (sec) <span id="durationBadge"
+                                <label class="form-label">時長 (秒) <span id="durationBadge"
                                         class="model-badge badge-fast"></span></label>
                                 <input type="range" class="form-range" id="durationSlider" min="2" max="10" value="5">
                                 <span id="durationValue">5</span>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Steps <span id="stepsBadge"
+                                <label class="form-label">步數 <span id="stepsBadge"
                                         class="model-badge badge-quality"></span></label>
                                 <input type="range" class="form-range" id="stepsSlider" min="4" max="50" value="20">
                                 <span id="stepsValue">20</span>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Guidance Scale</label>
+                                <label class="form-label">引導比例</label>
                                 <input type="range" class="form-range" id="guidanceSlider" min="1" max="15" step="0.5"
                                     value="7.5">
                                 <span id="guidanceValue">7.5</span>
                             </div>
                         </div>
 
-                        <!-- Aspect Ratio -->
                         <div class="mb-3">
-                            <label class="form-label">Aspect Ratio</label>
+                            <label class="form-label">長寬比</label>
                             <div class="d-flex gap-2">
                                 <button type="button" class="btn btn-outline-secondary btn-sm"
                                     onclick="setAspectRatio('16:9')">16:9</button>
@@ -143,50 +130,46 @@
                             </div>
                         </div>
 
-                        <!-- Generate Button -->
                         <button class="btn btn-generate" id="generateBtn" onclick="generateVideo()">
-                            <i class="fas fa-play me-2"></i>Generate
+                            <i class="fas fa-play me-2"></i>生成
                         </button>
                     </div>
 
-                    <!-- Output Area -->
                     <div class="output-area" id="outputArea">
                         <div class="output-placeholder">
                             <i class="fas fa-film"></i>
-                            <p>Enter a prompt and click "Generate" to start</p>
+                            <p>請輸入提示詞並點擊「生成」開始</p>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Features Section -->
         <section class="container features-section">
             <div class="row justify-content-center">
                 <div class="col-lg-8 text-center">
-                    <h2>Why Choose Our Platform?</h2>
-                    <p class="text-muted mb-4">Professional AI video generation with enterprise-grade security and
-                        performance</p>
+                    <h2>為什麼選擇我們?</h2>
+                    <p class="text-muted mb-4">專業 AI 影片生成，具備企業級安全性與效能</p>
                     <div class="row g-4">
                         <div class="col-md-4">
                             <div class="feature-card">
                                 <div class="feature-icon"><i class="fas fa-bolt"></i></div>
-                                <h5>Fast Generation</h5>
-                                <p class="text-muted">Powered by cutting-edge models on Cloudflare's edge network</p>
+                                <h5>快速生成</h5>
+                                <p class="text-muted">運行於先進模型與 Cloudflare 邊緣網路</p>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="feature-card">
                                 <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
-                                <h5>API Key Security</h5>
-                                <p class="text-muted">Secure authentication for all API requests</p>
+                                <h5>API 金鑰安全</h5>
+                                <p class="text-muted">保障所有 API 請求的安全認證</p>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="feature-card">
                                 <div class="feature-icon"><i class="fas fa-cogs"></i></div>
-                                <h5>Multi-Model Support</h5>
-                                <p class="text-muted">Access to multiple video and image generation models</p>
+                                <h5>多模型支援</h5>
+                                <p class="text-muted">支援多種影片與影像生成模型</p>
                             </div>
                         </div>
                     </div>
@@ -194,18 +177,17 @@
             </div>
         </section>
 
-        <!-- Footer -->
         <footer class="footer">
             <div class="container">
                 <div class="row">
                     <div class="col-md-6">
                         <a class="navbar-brand" href="/">
-                            <i class="fas fa-video"></i> AI Video Generator
+                            <i class="fas fa-video"></i> AI 影片生成器
                         </a>
                         <p class="text-muted mt-2">Professional AI Video Generation Platform</p>
                     </div>
                     <div class="col-md-6 text-md-end">
-                        <p class="text-muted">© 2024 AI Video Generator. All rights reserved.</p>
+                        <p class="text-muted">© 2024 AI 影片生成器。保留所有權益。</p>
                     </div>
                 </div>
             </div>
